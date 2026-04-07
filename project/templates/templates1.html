@@ -2,10 +2,44 @@
 <html lang="en">
 <head>
     <title>Osebni Zapiski</title>
+    <link rel="stylesheet" href="/static/static1.css">
 </head>
 <body>
+    <h2>Zdravo, {{ session["uporabnik"] }}!</h2>
+    <a href="/logout">Odjavi se</a>
+    <hr>
+
+    <h3>Moji zapiski:</h3>
+    {% if zapiski %}
+        {% for zapis in zapiski %}
+            <div>
+                <a href="/uredi/{{ zapis.doc_id }}">📄 {{ zapis["naslov"] }}</a>
+                <a href="/brisi/{{ zapis.doc_id }}">🗑️ Briši</a>
+            </div>
+        {% endfor %}
+    {% else %}
+        <p>Nimaš še nobenih zapiskov.</p>
+    {% endif %}
+    <hr>
     <h2>Zapiši, briši ali urejaj besedilo</h2>
-    <textarea name="" id="Zapiski" cols="100" rows="50"></textarea>
-    <button type="button">Shrani besedilo</button>
+    {% if zapis %}
+     
+        <form action="/uredi/{{ zapis.doc_id }}" method="post">
+            <input type="text" name="naslov" value="{{ zapis['naslov'] }}" required>
+            <br><br>
+            <textarea name="vsebina" id="Zapiski" cols="20" rows="20" required>{{ zapis["vsebina"] }}</textarea>
+            <br><br>
+            <button type="submit">Shrani besedilo</button>
+        </form>
+    {% else %}
+        <form action="/nov" method="post">
+            <input type="text" name="naslov" placeholder="Ime zapiska" required>
+            <br><br>
+            <textarea name="vsebina" id="Zapiski" cols="20" rows="20" required></textarea>
+            <br><br>
+            <button type="submit">Shrani besedilo</button>
+        </form>
+    {% endif %}
+
 </body>
 </html>
