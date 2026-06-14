@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Loggin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style2.css') }}">
+</head>
+<body>
+    <h2>Tukaj se prijavi!</h2>
+    
+    <form action="/login" method="post">
+        <input type="text" name="username" placeholder="username">
+        <input type="text" name="password" placeholder="password">
+
+        <button type="submit">Prijavi se!</button>
+
+    </form>
+    <a href="/register">Registiraj se tu če še nisi!</a>
+</body>
+</html>
