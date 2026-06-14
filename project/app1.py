@@ -1,63 +1,59 @@
-from flask import Flask, render_template, redirect, request, session
+from flask import Flask, render_template, request, redirect, session, jsonify
 from tinydb import TinyDB, Query
+
+
+
+app = Flask(__name__, template_folder="templates1", static_folder="static")
+app.secret_key = "skrivnost4321"
 
 db = TinyDB("database/db1.json")
 users = db.table("users")
-zapiski = db.table("zapiski")
+documents = db.table("documents")
 
 User = Query()
-Zapis = Query()
+Document = Query()
 
-app = Flask(
-    __name__,
-    template_folder="templates",
-    static_folder="static"
-)
-
-app.secret_key = "123456789"
-
-
-
+# homepage
 @app.route("/")
-def index():
-    if "uporabnik" not in session:
-        return redirect("/login")
-    moji_zapiski = zapiski.search(Zapis.username == session["uporabnik"])
-    return render_template("templates1.html", zapiski=moji_zapiski, zapis=None) 
+def home():
+    if "user" in session:
+        return redirect("/dashboard")
+    return redirect("/login")
 
 
-@app.route("/register", methods=["GET", "POST"])
+@app.route("/register", methods = ["GET","POST"])
 def register():
     if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
-
+        username=request.form["username"]
+        password=request.form["password"]
+        
         if users.search(User.username == username):
-            return render_template("register.html", napaka="Ime je že zasedeno.")
+            return "Uporabnik že obstaja!"
 
-        users.insert({"username": username, "password": password})
-        return redirect("/login")
+        users.insert({"username" : username, "password" : password, "note" : ""})
+        return redirect("/login")      
 
+        #print(username,password)
     return render_template("register.html")
 
 
-
-@app.route("/login", methods=["GET", "POST"])
+@app.route("/login", methods = ["GET","POST"])
 def login():
+
     if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
+        username=request.form["username"]
+        password=request.form["password"]
+        
+        user = users.get(User.username == username)
+        #print(user)
 
-        user = users.search((User.username == username) & (User.password == password))
+        if user and user["password"] == password:
+            session["user"] = username
+            return redirect("/dashboard")
 
-        if user:
-            session["uporabnik"] = username
-            return redirect("/")
-        else:
-            return render_template("login.html", napaka="Napačno ime ali geslo.")
+        return "Napačen login"
 
     return render_template("login.html")
-
 
 
 @app.route("/logout")
@@ -66,43 +62,81 @@ def logout():
     return redirect("/login")
 
 
-
-@app.route("/nov", methods=["GET", "POST"])
-def nov():
-    if "uporabnik" not in session:
+@app.route("/dashboard")
+def dashboard():
+    if "user" not in session:
         return redirect("/login")
-    if request.method == "POST":
-        naslov  = request.form["naslov"]
-        vsebina = request.form["vsebina"]
-        zapiski.insert({"naslov": naslov, "vsebina": vsebina, "username": session["uporabnik"]})
-        return redirect("/")
-    moji_zapiski = zapiski.search(Zapis.username == session["uporabnik"])
-    return render_template("templates1.html", zapiski=moji_zapiski, zapis=None)
+
+    user_docs = documents.search(Document.owner == session["user"])
+    return render_template("dashboard.html", user=session["user"], documents=user_docs)
 
 
+@app.route("/new_document", methods=["POST"])
+def new_document():
+    if "user" not in session:
+        return jsonify({"success": False})
 
-@app.route("/uredi/<int:id>", methods=["GET", "POST"])
-def uredi(id):
-    if "uporabnik" not in session:
+    doc_id = len(documents) + 1
+
+    documents.insert({
+        "id": doc_id,
+        "owner": session["user"],
+        "title": f"Dokument {doc_id}",
+        "content": ""
+    })
+
+    return jsonify({"success": True, "doc_id": doc_id})
+
+@app.route("/editor/<int:doc_id>")
+def editor(doc_id):
+    if "user" not in session:
         return redirect("/login")
-    zapis = zapiski.get(doc_id=id)
-    if request.method == "POST":
-        naslov  = request.form["naslov"]
-        vsebina = request.form["vsebina"]
-        zapiski.update({"naslov": naslov, "vsebina": vsebina}, doc_ids=[id])
-        return redirect("/")
-    moji_zapiski = zapiski.search(Zapis.username == session["uporabnik"])
-    return render_template("templates1.html", zapiski=moji_zapiski, zapis=zapis)
+
+    doc = documents.get((Document.id == doc_id) & (Document.owner == session["user"]))
+    if not doc:
+        return "Dokument ne obstaja"
+
+    return render_template("editor.html", doc=doc)
 
 
+@app.route("/save_document/<int:doc_id>", methods=["POST"])
+def save_document(doc_id):
+    if "user" not in session:
+        return jsonify({"success": False})
 
-@app.route("/brisi/<int:id>")
-def brisi(id):
-    if "uporabnik" not in session:
-        return redirect("/login")
-    zapiski.remove(doc_ids=[id])
-    return redirect("/")
+    title = request.form["title"]
+    content = request.form["content"]
+
+    documents.update(
+        {"title": title, "content": content},
+        (Document.id == doc_id) & (Document.owner == session["user"])
+    )
+
+    return jsonify({"success": True})
 
 
+@app.route("/delete_document/<int:doc_id>", methods=["POST"])
+def delete_document(doc_id):
+    if "user" not in session:
+        return jsonify({"success": False})
 
-app.run(debug=True)
+    documents.remove((Document.id == doc_id) & (Document.owner == session["user"]))
+    return jsonify({"success": True})
+
+
+@app.route("/search_documents")
+def search_documents():
+    if "user" not in session:
+        return jsonify([])
+
+    q = request.args.get("q", "").lower()
+    user_docs = documents.search(Document.owner == session["user"])
+
+    filtered = []
+    for doc in user_docs:
+        if q in doc["title"].lower() or q in doc["content"].lower():
+            filtered.append(doc)
+
+    return jsonify(filtered)
+
+app.run(debug=1)
