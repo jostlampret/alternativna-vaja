@@ -1,0 +1,1 @@
+{"users": {"1": {"username": "lojze", "password": "Lojze", "game": "Valorant"}, "2": {"username": "janez", "password": "janez", "game": "Valorant"}}, "listings": {"1": {"id": 1, "owner": "lojze", "game": "Valorant", "rank": "Gold", "description": "", "spots": 2, "filled": 1}}, "join_requests": {"1": {"listing_id": 1, "username": "janez", "status": "accepted"}}}

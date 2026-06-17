@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+    <meta charset="UTF-8">
+    <title>FindMyTeam – Iskanje ekipe</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style3.css') }}">
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="nav-brand">
+            <span>🎮</span> FindMyTeam
+        </div>
+        <div class="nav-links">
+            <span class="nav-user">👤 {{ user }}</span>
+            <a href="/my_listings" class="btn btn-outline">Moji oglasi</a>
+            <a href="/logout" class="btn btn-ghost">Odjava</a>
+        </div>
+    </nav>
+
+    <div class="container">
+
+        <!-- CREATE LISTING FORM -->
+        <section class="card">
+            <h2 class="section-title">🕹️ Nov oglas za ekipo</h2>
+            <form id="listingForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Igra</label>
+                        <input type="text" name="game" placeholder="npr. Valorant, CS2, LoL..." required>
+                    </div>
+                    <div class="form-group">
+                        <label>Rang / Nivo</label>
+                        <input type="text" name="rank" placeholder="npr. Gold, Platinum, Diamond...">
+                    </div>
+                    <div class="form-group form-group-sm">
+                        <label>Mesta</label>
+                        <input type="number" name="spots" min="1" max="10" value="1">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Opis</label>
+                    <textarea name="description" placeholder="Opiši stil igranja, zahteve, urnik..."></textarea>
+                </div>
+                <div class="form-actions">
+                    <input type="text" id="searchInput" placeholder="🔍 Išči po igri, rangu, opisu..." class="search-input">
+                    <button type="submit" class="btn btn-primary">Objavi oglas</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- LISTINGS -->
+        <section>
+            <h2 class="section-title">📋 Aktivni oglasi</h2>
+            <div id="listingsGrid" class="listings-grid">
+                {% for listing in listings %}
+                <div class="listing-card" data-id="{{ listing.id }}">
+                    <div class="listing-header">
+                        <span class="game-badge">{{ listing.game }}</span>
+                        <span class="rank-badge">{{ listing.rank }}</span>
+                    </div>
+                    <p class="listing-desc">{{ listing.description }}</p>
+                    <div class="listing-footer">
+                        <div class="listing-meta">
+                            <span>👤 {{ listing.owner }}</span>
+                            <span>🪑 {{ listing.filled }}/{{ listing.spots }} mest</span>
+                            {% if listing.req_count > 0 %}
+                                <span class="req-badge">{{ listing.req_count }} prošenj</span>
+                            {% endif %}
+                        </div>
+                        {% if listing.owner != user %}
+                            <button class="btn btn-join" onclick="joinListing({{ listing.id }}, this)">
+                                Pridruži se
+                            </button>
+                        {% else %}
+                            <span class="owner-tag">Tvoj oglas</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <p>🎮 Še ni oglasov. Bodi prvi!</p>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        // CREATE LISTING
+        document.getElementById("listingForm").onsubmit = function(e) {
+            e.preventDefault();
+            let data = new FormData(this);
+
+            fetch("/create_listing", {
+                method: "POST",
+                body: data
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert("Napaka pri objavi oglasa");
+                }
+            });
+        };
+
+        // JOIN LISTING
+        function joinListing(listingId, btn) {
+            fetch("/join/" + listingId, { method: "POST" })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    btn.textContent = "✓ Poslano";
+                    btn.disabled = true;
+                    btn.classList.add("btn-sent");
+                } else {
+                    alert(data.msg || "Napaka");
+                }
+            });
+        }
+
+        // SEARCH
+        let searchTimeout;
+        document.getElementById("searchInput").addEventListener("input", function() {
+            clearTimeout(searchTimeout);
+            const q = this.value;
+
+            if (q.length === 0) {
+                location.reload();
+                return;
+            }
+
+            searchTimeout = setTimeout(() => {
+                fetch("/search_listings?q=" + encodeURIComponent(q))
+                .then(res => res.json())
+                .then(results => {
+                    const grid = document.getElementById("listingsGrid");
+                    if (results.length === 0) {
+                        grid.innerHTML = '<div class="empty-state"><p>🔍 Ni rezultatov za "' + q + '"</p></div>';
+                        return;
+                    }
+                    grid.innerHTML = results.map(l => `
+                        <div class="listing-card">
+                            <div class="listing-header">
+                                <span class="game-badge">${l.game}</span>
+                                <span class="rank-badge">${l.rank}</span>
+                            </div>
+                            <p class="listing-desc">${l.description}</p>
+                            <div class="listing-footer">
+                                <div class="listing-meta">
+                                    <span>👤 ${l.owner}</span>
+                                    <span>🪑 ${l.filled}/${l.spots} mest</span>
+                                </div>
+                                ${l.owner !== "{{ user }}" ? `<button class="btn btn-join" onclick="joinListing(${l.id}, this)">Pridruži se</button>` : '<span class="owner-tag">Tvoj oglas</span>'}
+                            </div>
+                        </div>
+                    `).join("");
+                });
+            }, 300);
+        });
+    </script>
+
+</body>
+</html>

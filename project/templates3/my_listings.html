@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+    <meta charset="UTF-8">
+    <title>FindMyTeam – Moji oglasi</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style3.css') }}">
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="nav-brand">
+            <span>🎮</span> FindMyTeam
+        </div>
+        <div class="nav-links">
+            <span class="nav-user">👤 {{ user }}</span>
+            <a href="/dashboard" class="btn btn-outline">Iskanje ekip</a>
+            <a href="/logout" class="btn btn-ghost">Odjava</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h2 class="section-title">📁 Moji oglasi</h2>
+
+        {% if listings %}
+            {% for listing in listings %}
+            <div class="listing-manage-card" id="card-{{ listing.id }}">
+                <div class="listing-manage-header">
+                    <div>
+                        <span class="game-badge">{{ listing.game }}</span>
+                        <span class="rank-badge">{{ listing.rank }}</span>
+                        <span class="spots-info">🪑 {{ listing.filled }}/{{ listing.spots }} mest</span>
+                    </div>
+                    <button class="btn btn-danger btn-sm" onclick="deleteListing({{ listing.id }})">Izbriši</button>
+                </div>
+                <p class="listing-desc">{{ listing.description }}</p>
+
+                {% if listing.requests %}
+                <div class="requests-section">
+                    <h4>Prošnje za pridružitev ({{ listing.requests|length }})</h4>
+                    <div class="requests-list">
+                        {% for req in listing.requests %}
+                        <div class="request-item" id="req-{{ listing.id }}-{{ req.username }}">
+                            <span class="req-username">👤 {{ req.username }}</span>
+                            <span class="req-status status-{{ req.status }}">
+                                {% if req.status == "pending" %}⏳ V čakanju
+                                {% elif req.status == "accepted" %}✅ Sprejet
+                                {% elif req.status == "rejected" %}❌ Zavrnjen
+                                {% endif %}
+                            </span>
+                            {% if req.status == "pending" %}
+                            <div class="req-actions">
+                                <button class="btn btn-accept btn-sm" onclick="handleRequest({{ listing.id }}, '{{ req.username }}', 'accept')">Sprejmi</button>
+                                <button class="btn btn-reject btn-sm" onclick="handleRequest({{ listing.id }}, '{{ req.username }}', 'reject')">Zavrni</button>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% else %}
+                <p class="no-requests">Še ni prošenj.</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <p>📭 Nimaš še nobenih oglasov. <a href="/dashboard">Ustvari oglas!</a></p>
+            </div>
+        {% endif %}
+    </div>
+
+    <script>
+        function deleteListing(id) {
+            if (!confirm("Res izbriši ta oglas?")) return;
+            fetch("/delete_listing/" + id, { method: "POST" })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById("card-" + id).remove();
+                } else {
+                    alert("Napaka pri brisanju");
+                }
+            });
+        }
+
+        function handleRequest(listingId, username, action) {
+            fetch(`/handle_request/${listingId}/${username}/${action}`, { method: "POST" })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const el = document.getElementById(`req-${listingId}-${username}`);
+                    const statusEl = el.querySelector(".req-status");
+                    const actionsEl = el.querySelector(".req-actions");
+                    if (action === "accept") {
+                        statusEl.textContent = "✅ Sprejet";
+                        statusEl.className = "req-status status-accepted";
+                    } else {
+                        statusEl.textContent = "❌ Zavrnjen";
+                        statusEl.className = "req-status status-rejected";
+                    }
+                    if (actionsEl) actionsEl.remove();
+                } else {
+                    alert("Napaka");
+                }
+            });
+        }
+    </script>
+
+</body>
+</html>
